@@ -1,0 +1,6 @@
+{
+  "name": "Absensi Pengajian Offline",
+  "description": "Aplikasi absensi jamaah pengajian 100% offline dengan fitur QR Code scanner, generator, dan sinkronisasi data peer-to-peer (P2P) via Wi-Fi lokal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
