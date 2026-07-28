@@ -13,39 +13,47 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = GreenAccent,
-    secondary = GreenSecondary,
-    tertiary = GreenLight,
-    background = GreenDark,
-    surface = Color(0xFF152A18),
+    primary = DarkEmeraldPrimary,
+    secondary = DarkGoldAccent,
+    tertiary = GoldAccent,
+    background = DarkEmeraldBackground,
+    surface = DarkEmeraldCard,
+    surfaceVariant = DarkEmeraldSurfaceVar,
     onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
+    onSecondary = DarkEmeraldBackground,
+    onBackground = DarkTextPrimary,
+    onSurface = DarkTextPrimary,
+    onSurfaceVariant = DarkTextSecondary,
+    outline = DarkGoldAccent.copy(alpha = 0.3f),
     error = StatusError
   )
 
 private val LightColorScheme =
   lightColorScheme(
-    primary = GreenPrimary,
-    secondary = GreenSecondary,
-    tertiary = GreenAccent,
-    background = WhiteCanvas,
+    primary = EmeraldPrimary,
+    secondary = GoldPrimary,
+    tertiary = GoldAccent,
+    background = CreamIvoryBackground,
     surface = WhiteCard,
+    surfaceVariant = SurfaceVariantCream,
     onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = TextDark,
-    onSurface = TextDark,
-    surfaceVariant = GreenLight,
-    onSurfaceVariant = GreenSecondary,
+    onSecondary = TextDarkCharcoal,
+    onBackground = TextDarkCharcoal,
+    onSurface = TextDarkCharcoal,
+    onSurfaceVariant = TextMutedGrey,
+    primaryContainer = EmeraldContainer,
+    onPrimaryContainer = EmeraldDark,
+    secondaryContainer = GoldContainer,
+    onSecondaryContainer = EmeraldPrimary,
+    outline = GoldBorder,
     error = StatusError
   )
 
 @Composable
 fun MyApplicationTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+  // Set dynamicColor to false to enforce our signature Islamic Emerald & Cream Gold design
+  dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
   val colorScheme =

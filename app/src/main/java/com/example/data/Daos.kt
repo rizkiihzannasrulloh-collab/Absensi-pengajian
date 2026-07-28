@@ -3,6 +3,16 @@ package com.example.data
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
+data class DailyAttendanceStat(
+    val tanggal: String,
+    val totalHadir: Int
+)
+
+data class JamaahMonthlyStat(
+    val jamaahId: String,
+    val totalHadir: Int
+)
+
 @Dao
 interface JamaahDao {
     @Query("SELECT * FROM jamaah WHERE isDeleted = 0 ORDER BY nama ASC")
@@ -44,6 +54,18 @@ interface KehadiranDao {
     @Query("SELECT * FROM kehadiran WHERE jamaahId = :jamaahId AND isDeleted = 0 ORDER BY timestamp DESC")
     fun getByJamaahId(jamaahId: String): Flow<List<Kehadiran>>
 
+    @Query("SELECT tanggal, COUNT(DISTINCT jamaahId) as totalHadir FROM kehadiran WHERE tanggal LIKE :yearMonth || '%' AND isDeleted = 0 GROUP BY tanggal ORDER BY tanggal ASC")
+    fun getDailyAttendanceStats(yearMonth: String): Flow<List<DailyAttendanceStat>>
+
+    @Query("SELECT jamaahId, COUNT(DISTINCT tanggal) as totalHadir FROM kehadiran WHERE tanggal LIKE :yearMonth || '%' AND isDeleted = 0 GROUP BY jamaahId")
+    fun getMonthlyStatsPerJamaah(yearMonth: String): Flow<List<JamaahMonthlyStat>>
+
+    @Query("SELECT COUNT(DISTINCT tanggal) FROM kehadiran WHERE tanggal LIKE :yearMonth || '%' AND isDeleted = 0")
+    fun getTotalSessionsInMonth(yearMonth: String): Flow<Int>
+
+    @Query("SELECT COUNT(DISTINCT jamaahId) FROM kehadiran WHERE tanggal = :tanggal AND isDeleted = 0")
+    fun getTodayHadirCount(tanggal: String): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(kehadiran: Kehadiran)
 
@@ -61,6 +83,9 @@ interface KehadiranDao {
 interface ConfigDao {
     @Query("SELECT value FROM config WHERE `key` = :key LIMIT 1")
     suspend fun getValue(key: String): String?
+
+    @Query("SELECT value FROM config WHERE `key` = 'nama_panitia' LIMIT 1")
+    fun getNamaPanitiaFlow(): Flow<String?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setValue(config: Config)

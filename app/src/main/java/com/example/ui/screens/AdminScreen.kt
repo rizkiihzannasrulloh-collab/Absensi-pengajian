@@ -201,6 +201,11 @@ fun AdminControlPanel(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
+    // Nama Panitia state
+    val currentNamaPanitia by viewModel.namaPanitia.collectAsState()
+    var editedNamaPanitia by remember(currentNamaPanitia) { mutableStateOf(currentNamaPanitia) }
+    var namaPanitiaError by remember { mutableStateOf("") }
+
     // Modify PIN forms
     var isChangePinVisible by remember { mutableStateOf(false) }
     var oldPin by remember { mutableStateOf("") }
@@ -256,6 +261,79 @@ fun AdminControlPanel(
                 Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, size = 14.dp)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Kunci Panel", fontSize = 12.sp, color = Color.White)
+            }
+        }
+
+        // Section 0: Identitas Panitia / Pengajian
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Identitas Panitia / Instansi",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Nama ini akan ditampilkan pada header salam di Dashboard utama dan kartu absensi jamaah secara otomatis.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = editedNamaPanitia,
+                    onValueChange = {
+                        editedNamaPanitia = it
+                        if (it.isNotBlank()) namaPanitiaError = ""
+                    },
+                    label = { Text("Nama Panitia / Pengajian") },
+                    placeholder = { Text("Contoh: Panitia Syiar Pengajian Al-Hidayah") },
+                    singleLine = true,
+                    isError = namaPanitiaError.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (namaPanitiaError.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = namaPanitiaError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        if (editedNamaPanitia.isBlank()) {
+                            namaPanitiaError = "Nama panitia tidak boleh kosong!"
+                        } else {
+                            viewModel.updateNamaPanitia(editedNamaPanitia) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "Nama panitia berhasil diperbarui!", Toast.LENGTH_SHORT).show()
+                                    namaPanitiaError = ""
+                                } else {
+                                    namaPanitiaError = "Gagal memperbarui nama panitia."
+                                }
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Simpan Perubahan")
+                }
             }
         }
 

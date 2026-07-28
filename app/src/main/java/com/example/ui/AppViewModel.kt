@@ -5,11 +5,11 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
-import com.example.sync.LocalSyncManager
-import com.example.sync.PeerDevice
+import com.example.sync.*
 import com.example.utils.AudioUtils
 import com.example.utils.ExportUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -17,11 +17,13 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val repository = AppRepository(db)
     private val syncManager = LocalSyncManager.getInstance(application)
+    val jamaahTransportManager: IJamaahTransportManager = JamaahTransportManager()
 
     // Reactive streams from DB
     val allActiveJamaah: StateFlow<List<Jamaah>> = repository.allActiveJamaah
@@ -29,6 +31,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val allActiveKehadiran: StateFlow<List<Kehadiran>> = repository.allActiveKehadiran
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Config State
+    val namaPanitia: StateFlow<String> = repository.namaPanitia
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Panitia Syiar Pengajian")
+
+    fun updateNamaPanitia(newName: String, onResult: (Boolean) -> Unit) {
+        val trimmed = newName.trim()
+        if (trimmed.isEmpty()) {
+            onResult(false)
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveNamaPanitia(trimmed)
+            withContext(Dispatchers.Main) { onResult(true) }
+        }
+    }
 
     // Peers & Sync state
     val availablePeers: StateFlow<List<PeerDevice>> = syncManager.peers
@@ -56,6 +74,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val jamaahMap = jamaah.associateBy { it.id }
         kehadiran.map { k -> Pair(k, jamaahMap[k.jamaahId]) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Statistics / Rekap Screen Filter State
+    private val _selectedYearMonth = MutableStateFlow(
+        SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+    )
+    val selectedYearMonth = _selectedYearMonth.asStateFlow()
+
+    fun setSelectedYearMonth(yearMonth: String) {
+        _selectedYearMonth.value = yearMonth
+    }
+
+    // Daily Attendance Stats for Selected Month (from Room aggregated DAO)
+    val dailyAttendanceStats: StateFlow<List<DailyAttendanceStat>> = _selectedYearMonth
+        .flatMapLatest { yearMonth -> repository.getDailyAttendanceStats(yearMonth) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Monthly Stats Per Jamaah (from Room aggregated DAO)
+    val monthlyStatsPerJamaah: StateFlow<List<JamaahMonthlyStat>> = _selectedYearMonth
+        .flatMapLatest { yearMonth -> repository.getMonthlyStatsPerJamaah(yearMonth) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Total study sessions held in selected month
+    val totalSessionsInMonth: StateFlow<Int> = _selectedYearMonth
+        .flatMapLatest { yearMonth -> repository.getTotalSessionsInMonth(yearMonth) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     // UI Search & Filters
     private val _searchQuery = MutableStateFlow("")
@@ -280,6 +323,47 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val success = ExportUtils.restoreFromJsonBackup(getApplication(), uri)
             withContext(Dispatchers.Main) {
                 callback(success)
+            }
+        }
+    }
+
+    // Feature 1: Jamaah Share & Import Transport
+    fun exportJamaahPackage(selectedList: List<Jamaah>? = null, callback: (File?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val listToExport = selectedList ?: allActiveJamaah.value
+            val file = jamaahTransportManager.exportPackageCompressedFile(
+                getApplication(),
+                listToExport,
+                deviceName
+            )
+            withContext(Dispatchers.Main) {
+                callback(file)
+            }
+        }
+    }
+
+    fun parseJamaahPackageFromFile(uri: android.net.Uri, callback: (JamaahPackageDto?, ImportSummary?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pkg = jamaahTransportManager.parsePackageFromFile(getApplication(), uri)
+            if (pkg == null) {
+                withContext(Dispatchers.Main) { callback(null, null) }
+            } else {
+                val summary = jamaahTransportManager.analyzePackageDuplicates(repository, pkg)
+                withContext(Dispatchers.Main) { callback(pkg, summary) }
+            }
+        }
+    }
+
+    fun importJamaahPackage(
+        pkg: JamaahPackageDto,
+        strategy: ImportDuplicateStrategy,
+        callback: (ImportSummary) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = jamaahTransportManager.importPackage(repository, pkg, strategy)
+            triggerAutoSync()
+            withContext(Dispatchers.Main) {
+                callback(result)
             }
         }
     }

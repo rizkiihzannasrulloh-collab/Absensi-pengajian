@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,6 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.Jamaah
+import com.example.sync.ImportDuplicateStrategy
+import com.example.sync.ImportSummary
+import com.example.sync.JamaahPackageDto
 import com.example.ui.AppViewModel
 import com.example.utils.BarcodeUtils
 import com.example.utils.ExportUtils
@@ -53,6 +59,31 @@ fun JamaahScreen(
     var isAddDialogVisible by remember { mutableStateOf(false) }
     var jamaahToEdit by remember { mutableStateOf<Jamaah?>(null) }
 
+    // Feature 1: Share & Import Jamaah Data states
+    var pendingPackage by remember { mutableStateOf<JamaahPackageDto?>(null) }
+    var pendingSummary by remember { mutableStateOf<ImportSummary?>(null) }
+    var selectedDuplicateStrategy by remember { mutableStateOf(ImportDuplicateStrategy.MERGE_KEEP_LATEST) }
+    var importResultSummary by remember { mutableStateOf<ImportSummary?>(null) }
+    var isParsingFile by remember { mutableStateOf(false) }
+
+    // Launcher for selecting incoming .jamaah.json / .json file
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            isParsingFile = true
+            viewModel.parseJamaahPackageFromFile(uri) { pkg, summary ->
+                isParsingFile = false
+                if (pkg != null && summary != null) {
+                    pendingPackage = pkg
+                    pendingSummary = summary
+                } else {
+                    Toast.makeText(context, "Gagal membaca berkas paket data Jamaah", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // Admin Pin verification for delete
     var jamaahToDeleteId by remember { mutableStateOf<String?>(null) }
     var isPinVerificationVisible by remember { mutableStateOf(false) }
@@ -73,17 +104,17 @@ fun JamaahScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Search Bar & Add Button
+            // Search Bar & Action Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { viewModel.setSearchQuery(it) },
-                    placeholder = { Text("Cari jamaah (Nama/HP/Alamat)...") },
+                    placeholder = { Text("Cari jamaah...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -101,11 +132,58 @@ fun JamaahScreen(
 
                 Button(
                     onClick = { isAddDialogVisible = true },
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Jamaah")
+                }
+            }
+
+            // Feature 1 Toolbar: Bagikan & Impor Data Jamaah Buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        if (jamaahList.isEmpty()) {
+                            Toast.makeText(context, "Belum ada data jamaah untuk dibagikan", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.exportJamaahPackage { file ->
+                                if (file != null) {
+                                    ExportUtils.shareFile(
+                                        context,
+                                        file,
+                                        "*/*",
+                                        "Bagikan Data Jamaah via Bluetooth / Wi-Fi"
+                                    )
+                                } else {
+                                    Toast.makeText(context, "Gagal membuat berkas paket data", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Bagikan Data", style = MaterialTheme.typography.labelMedium)
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        filePickerLauncher.launch("*/*")
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Impor Data", style = MaterialTheme.typography.labelMedium)
                 }
             }
 
@@ -207,6 +285,256 @@ fun JamaahScreen(
                 context = context,
                 onDismiss = { selectedJamaahForCard = null }
             )
+        }
+
+        // Feature 1: Preview & Import Dialog
+        if (pendingPackage != null && pendingSummary != null) {
+            val pkg = pendingPackage!!
+            val summary = pendingSummary!!
+
+            Dialog(onDismissRequest = {
+                pendingPackage = null
+                pendingSummary = null
+            }) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Pratinjau Impor Data Jamaah",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+
+                        Text(
+                            text = "Dikirim dari: ${pkg.senderDeviceName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Breakdown Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Total di Berkas:", style = MaterialTheme.typography.bodySmall)
+                                    Text("${summary.totalInPackage} Jamaah", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Jamaah Baru:", style = MaterialTheme.typography.bodySmall)
+                                    Text("${summary.totalInPackage - summary.duplicateIdsCount} Record", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Duplikat (QR ID Sama):", style = MaterialTheme.typography.bodySmall)
+                                    Text("${summary.duplicateIdsCount} Record", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100)))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Penanganan Duplikat:",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.align(Alignment.Start)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedDuplicateStrategy = ImportDuplicateStrategy.MERGE_KEEP_LATEST }
+                            ) {
+                                RadioButton(
+                                    selected = selectedDuplicateStrategy == ImportDuplicateStrategy.MERGE_KEEP_LATEST,
+                                    onClick = { selectedDuplicateStrategy = ImportDuplicateStrategy.MERGE_KEEP_LATEST }
+                                )
+                                Text("Gabungkan (Ganti jika data lebih baru)", style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedDuplicateStrategy = ImportDuplicateStrategy.SKIP_EXISTING }
+                            ) {
+                                RadioButton(
+                                    selected = selectedDuplicateStrategy == ImportDuplicateStrategy.SKIP_EXISTING,
+                                    onClick = { selectedDuplicateStrategy = ImportDuplicateStrategy.SKIP_EXISTING }
+                                )
+                                Text("Lewati (Hanya tambah jamaah baru)", style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedDuplicateStrategy = ImportDuplicateStrategy.OVERWRITE_ALL }
+                            ) {
+                                RadioButton(
+                                    selected = selectedDuplicateStrategy == ImportDuplicateStrategy.OVERWRITE_ALL,
+                                    onClick = { selectedDuplicateStrategy = ImportDuplicateStrategy.OVERWRITE_ALL }
+                                )
+                                Text("Timpa Semua (Ganti data lokal sepenuhnya)", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    pendingPackage = null
+                                    pendingSummary = null
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Batal")
+                            }
+
+                            Button(
+                                onClick = {
+                                    val pkgToImport = pkg
+                                    val strategy = selectedDuplicateStrategy
+                                    pendingPackage = null
+                                    pendingSummary = null
+
+                                    viewModel.importJamaahPackage(pkgToImport, strategy) { res ->
+                                        importResultSummary = res
+                                    }
+                                },
+                                modifier = Modifier.weight(1.2f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Impor Sekarang", color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Import Success Result Alert Dialog
+        if (importResultSummary != null) {
+            val res = importResultSummary!!
+            Dialog(onDismissRequest = { importResultSummary = null }) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE8F5E9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "IMPOR BERHASIL!",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2E7D32)
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Data jamaah telah tersimpan di Room database lokal dan QR Code otomatis valid di perangkat ini.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        HorizontalDivider()
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Jamaah Baru Ditambah:", style = MaterialTheme.typography.bodySmall)
+                            Text("${res.insertedCount}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Record Diperbarui:", style = MaterialTheme.typography.bodySmall)
+                            Text("${res.updatedCount}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Record Dilewati:", style = MaterialTheme.typography.bodySmall)
+                            Text("${res.skippedCount}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.Gray))
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = { importResultSummary = null },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Selesai", color = Color.White)
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 
 enum class Screen {
-    Dashboard, Jamaah, Riwayat, Sync, Admin
+    Dashboard, Jamaah, Rekap, Riwayat, Sync, Admin
 }
 
 class MainActivity : ComponentActivity() {
@@ -60,6 +60,12 @@ fun MainAppContainer() {
                         title = "Jamaah",
                         selectedIcon = Icons.Filled.PeopleAlt,
                         unselectedIcon = Icons.Outlined.PeopleAlt
+                    ),
+                    NavigationItem(
+                        screen = Screen.Rekap,
+                        title = "Rekap",
+                        selectedIcon = Icons.Filled.PieChart,
+                        unselectedIcon = Icons.Outlined.PieChart
                     ),
                     NavigationItem(
                         screen = Screen.Riwayat,
@@ -116,6 +122,7 @@ fun MainAppContainer() {
             when (currentScreen) {
                 Screen.Dashboard -> DashboardScreen(viewModel = viewModel)
                 Screen.Jamaah -> JamaahScreen(viewModel = viewModel)
+                Screen.Rekap -> RekapScreen(viewModel = viewModel)
                 Screen.Riwayat -> RiwayatScreen(viewModel = viewModel)
                 Screen.Sync -> SyncScreen(viewModel = viewModel)
                 Screen.Admin -> AdminScreen(viewModel = viewModel)

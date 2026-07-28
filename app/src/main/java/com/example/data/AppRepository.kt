@@ -1,6 +1,7 @@
 package com.example.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 class AppRepository(private val db: AppDatabase) {
@@ -8,11 +9,25 @@ class AppRepository(private val db: AppDatabase) {
     private val kehadiranDao = db.kehadiranDao()
     private val configDao = db.configDao()
 
+    val namaPanitia: Flow<String> = configDao.getNamaPanitiaFlow().map { it ?: "Panitia Syiar Pengajian" }
+
     val allActiveJamaah: Flow<List<Jamaah>> = jamaahDao.getAllActive()
     val allActiveKehadiran: Flow<List<Kehadiran>> = kehadiranDao.getAllActive()
 
     fun getKehadiranByDate(tanggal: String): Flow<List<Kehadiran>> = kehadiranDao.getByDate(tanggal)
     fun getKehadiranByJamaahId(jamaahId: String): Flow<List<Kehadiran>> = kehadiranDao.getByJamaahId(jamaahId)
+
+    fun getDailyAttendanceStats(yearMonth: String): Flow<List<DailyAttendanceStat>> =
+        kehadiranDao.getDailyAttendanceStats(yearMonth)
+
+    fun getMonthlyStatsPerJamaah(yearMonth: String): Flow<List<JamaahMonthlyStat>> =
+        kehadiranDao.getMonthlyStatsPerJamaah(yearMonth)
+
+    fun getTotalSessionsInMonth(yearMonth: String): Flow<Int> =
+        kehadiranDao.getTotalSessionsInMonth(yearMonth)
+
+    fun getTodayHadirCount(tanggal: String): Flow<Int> =
+        kehadiranDao.getTodayHadirCount(tanggal)
 
     suspend fun getJamaahById(id: String): Jamaah? = jamaahDao.getById(id)
 
@@ -57,6 +72,10 @@ class AppRepository(private val db: AppDatabase) {
     }
 
     // Config & Security
+    suspend fun saveNamaPanitia(nama: String) {
+        configDao.setValue(Config("nama_panitia", nama))
+    }
+
     suspend fun getAdminPin(): String {
         return configDao.getValue("admin_pin") ?: "1234"
     }
