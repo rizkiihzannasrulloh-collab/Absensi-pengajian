@@ -20,6 +20,8 @@ import com.example.ui.AppViewModel
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+
 enum class Screen {
     Dashboard, Jamaah, Rekap, Riwayat, Sync, Admin
 }
@@ -29,24 +31,33 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
-                MainAppContainer()
+            val viewModel: AppViewModel = viewModel()
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemIsDark = isSystemInDarkTheme()
+            val isDarkTheme = when (themeMode) {
+                "LIGHT" -> false
+                "DARK" -> true
+                else -> systemIsDark
+            }
+
+            MyApplicationTheme(darkTheme = isDarkTheme) {
+                MainAppContainer(viewModel = viewModel)
             }
         }
     }
 }
 
 @Composable
-fun MainAppContainer() {
-    val viewModel: AppViewModel = viewModel()
+fun MainAppContainer(viewModel: AppViewModel = viewModel()) {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
     Scaffold(
         bottomBar = {
             NavigationBar(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.navigationBars),
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+                tonalElevation = 6.dp
             ) {
                 val items = listOf(
                     NavigationItem(
@@ -92,7 +103,14 @@ fun MainAppContainer() {
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = { currentScreen = item.screen },
-                        label = { Text(item.title, style = MaterialTheme.typography.labelSmall) },
+                        label = { 
+                            Text(
+                                item.title, 
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                                )
+                            ) 
+                        },
                         icon = {
                             Icon(
                                 imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
@@ -102,9 +120,9 @@ fun MainAppContainer() {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     )
                 }

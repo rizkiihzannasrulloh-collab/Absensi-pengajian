@@ -36,6 +36,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val namaPanitia: StateFlow<String> = repository.namaPanitia
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Panitia Syiar Pengajian")
 
+    val themeMode: StateFlow<String> = repository.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "SYSTEM")
+
     fun updateNamaPanitia(newName: String, onResult: (Boolean) -> Unit) {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) {
@@ -46,6 +49,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.saveNamaPanitia(trimmed)
             withContext(Dispatchers.Main) { onResult(true) }
         }
+    }
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveThemeMode(mode)
+        }
+    }
+
+    fun toggleThemeMode(currentIsDark: Boolean) {
+        val newMode = if (currentIsDark) "LIGHT" else "DARK"
+        setThemeMode(newMode)
     }
 
     // Peers & Sync state

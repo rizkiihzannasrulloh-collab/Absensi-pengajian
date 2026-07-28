@@ -44,6 +44,13 @@ fun DashboardScreen(
     val stats by viewModel.dashboardStats.collectAsState()
     val scanStatus by viewModel.scanResult.collectAsState()
     val namaPanitia by viewModel.namaPanitia.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val systemIsDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val currentIsDark = when (themeMode) {
+        "LIGHT" -> false
+        "DARK" -> true
+        else -> systemIsDark
+    }
     var isScanning by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -112,30 +119,50 @@ fun DashboardScreen(
                                 )
                             }
 
-                            // Badge Tag
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = GoldPrimary.copy(alpha = 0.2f),
-                                border = BorderStroke(0.5.dp, GoldAccent.copy(alpha = 0.5f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            // Badge Tag & Theme Mode Toggle
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = GoldPrimary.copy(alpha = 0.2f),
+                                    border = BorderStroke(0.5.dp, GoldAccent.copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = GoldAccent,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Offline Syiar",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = GoldAccent,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp
+                                            )
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // Quick Theme Toggle Button
+                                IconButton(
+                                    onClick = { viewModel.toggleThemeMode(currentIsDark) },
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(GoldPrimary.copy(alpha = 0.2f))
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
+                                        imageVector = if (currentIsDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                        contentDescription = "Toggle Theme",
                                         tint = GoldAccent,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Offline Syiar",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = GoldAccent,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 10.sp
-                                        )
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }

@@ -87,6 +87,9 @@ interface ConfigDao {
     @Query("SELECT value FROM config WHERE `key` = 'nama_panitia' LIMIT 1")
     fun getNamaPanitiaFlow(): Flow<String?>
 
+    @Query("SELECT value FROM config WHERE `key` = 'theme_mode' LIMIT 1")
+    fun getThemeModeFlow(): Flow<String?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setValue(config: Config)
 

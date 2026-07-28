@@ -206,6 +206,9 @@ fun AdminControlPanel(
     var editedNamaPanitia by remember(currentNamaPanitia) { mutableStateOf(currentNamaPanitia) }
     var namaPanitiaError by remember { mutableStateOf("") }
 
+    // Theme Mode state
+    val currentThemeMode by viewModel.themeMode.collectAsState()
+
     // Modify PIN forms
     var isChangePinVisible by remember { mutableStateOf(false) }
     var oldPin by remember { mutableStateOf("") }
@@ -333,6 +336,70 @@ fun AdminControlPanel(
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Simpan Perubahan")
+                }
+            }
+        }
+
+        // Section 0.5: Mode Tema Aplikasi (Terang / Gelap)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Palette, contentDescription = null, size = 20.dp, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Mode Tampilan Tema",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Pilih tampilan warna aplikasi sesuai kenyamanan penggunaan (Mode Terang Gading atau Mode Gelap Zamrud).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Option 1: Light Mode
+                    FilterChip(
+                        selected = currentThemeMode == "LIGHT",
+                        onClick = { viewModel.setThemeMode("LIGHT") },
+                        label = { Text("Terang") },
+                        leadingIcon = {
+                            Icon(Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Option 2: Dark Mode
+                    FilterChip(
+                        selected = currentThemeMode == "DARK",
+                        onClick = { viewModel.setThemeMode("DARK") },
+                        label = { Text("Gelap") },
+                        leadingIcon = {
+                            Icon(Icons.Default.DarkMode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Option 3: System Mode
+                    FilterChip(
+                        selected = currentThemeMode == "SYSTEM",
+                        onClick = { viewModel.setThemeMode("SYSTEM") },
+                        label = { Text("Sistem") },
+                        leadingIcon = {
+                            Icon(Icons.Default.SettingsBrightness, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }

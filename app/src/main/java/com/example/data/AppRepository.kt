@@ -10,6 +10,7 @@ class AppRepository(private val db: AppDatabase) {
     private val configDao = db.configDao()
 
     val namaPanitia: Flow<String> = configDao.getNamaPanitiaFlow().map { it ?: "Panitia Syiar Pengajian" }
+    val themeMode: Flow<String> = configDao.getThemeModeFlow().map { it ?: "SYSTEM" }
 
     val allActiveJamaah: Flow<List<Jamaah>> = jamaahDao.getAllActive()
     val allActiveKehadiran: Flow<List<Kehadiran>> = kehadiranDao.getAllActive()
@@ -74,6 +75,10 @@ class AppRepository(private val db: AppDatabase) {
     // Config & Security
     suspend fun saveNamaPanitia(nama: String) {
         configDao.setValue(Config("nama_panitia", nama))
+    }
+
+    suspend fun saveThemeMode(mode: String) {
+        configDao.setValue(Config("theme_mode", mode))
     }
 
     suspend fun getAdminPin(): String {
